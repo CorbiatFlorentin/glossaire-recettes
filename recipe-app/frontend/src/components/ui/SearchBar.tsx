@@ -5,7 +5,7 @@ interface Props {
   icon?: string;
 }
 
-export default function SearchBar({ value, onChange, placeholder = 'Rechercher...', icon = 'Ì¥ç' }: Props) {
+export default function SearchBar({ value, onChange, placeholder = 'Rechercher...', icon = 'üîç' }: Props) {
   return (
     <div className="relative flex-1">
       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
