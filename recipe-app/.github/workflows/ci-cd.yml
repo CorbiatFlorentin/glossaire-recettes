@@ -1,0 +1,222 @@
+name: CI/CD — Mes Recettes
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+# ─────────────────────────────────────────────
+# JOB 1 — Lint & type-check backend
+# ─────────────────────────────────────────────
+jobs:
+  lint-backend:
+    name: 🔍 Lint & types backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Type check
+        working-directory: backend
+        run: npx tsc --noEmit
+
+  # ─────────────────────────────────────────────
+  # JOB 2 — Lint & type-check frontend
+  # ─────────────────────────────────────────────
+  lint-frontend:
+    name: 🔍 Lint & types frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  # ─────────────────────────────────────────────
+  # JOB 3 — Tests backend avec PostgreSQL
+  # ─────────────────────────────────────────────
+  test-backend:
+    name: 🧪 Tests backend
+    runs-on: ubuntu-latest
+    needs: [lint-backend]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: recipe_user
+          POSTGRES_PASSWORD: recipe_pass
+          POSTGRES_DB: recipe_app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://recipe_user:recipe_pass@localhost:5432/recipe_app_test
+      JWT_SECRET: test-secret-for-ci-only
+      JWT_EXPIRES_IN: 1d
+      NODE_ENV: test
+      PORT: 3001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Run migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test --if-present
+
+  # ─────────────────────────────────────────────
+  # JOB 4 — Build Docker images (sur main seulement)
+  # ─────────────────────────────────────────────
+  build-docker:
+    name: 🐳 Build Docker images
+    runs-on: ubuntu-latest
+    needs: [lint-backend, lint-frontend, test-backend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/recipe-app-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/recipe-app-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/recipe-app-frontend:latest
+            ${{ secrets.DOCKER_USERNAME }}/recipe-app-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────
+  # JOB 5 — Deploy (sur main seulement)
+  # ─────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy
+    runs-on: ubuntu-latest
+    needs: [build-docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/recipe-app
+
+            # Pull dernières images
+            docker pull ${{ secrets.DOCKER_USERNAME }}/recipe-app-backend:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/recipe-app-frontend:latest
+
+            # Migrations Prisma
+            docker run --rm \
+              --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              ${{ secrets.DOCKER_USERNAME }}/recipe-app-backend:latest \
+              npx prisma migrate deploy
+
+            # Redémarrage zero-downtime
+            docker compose pull
+            docker compose up -d --no-deps --build backend frontend
+
+            # Nettoyage images obsolètes
+            docker image prune -f
+
+      - name: Notify success
+        if: success()
+        run: echo "✅ Déploiement réussi — $(date)"
+
+      - name: Notify failure
+        if: failure()
+        run: echo "❌ Déploiement échoué — $(date)"
