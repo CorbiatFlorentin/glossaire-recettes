@@ -1,0 +1,79 @@
+DATABASE_URL="postgresql://postgres:B2afdf25@localhost:5432/recipe_app"
+JWT_SECRET="une-chaine-secrete-longue-au-choix"
+JWT_EXPIRES_IN="7d"
+PORT=3001
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE_MB=10
+
+# Email (optionnel, à remplir plus tard)
+IMAP_HOST=imap.gmail.com
+IMAP_PORT=993
+IMAP_USER=
+IMAP_PASSWORD=
+IMAP_TLS=true
+IMAP_MAILBOX=INBOX
+EMAIL_RECIPE_TAG=recette
+
+
+
+frontend/vite.config.ts
+Vérifier que le proxy pointe bien vers le port 3001 :
+tsproxy: {
+  '/api': { target: 'http://127.0.0.1:3001', changeOrigin: true },
+  '/uploads': { target: 'http://127.0.0.1:3001', changeOrigin: true },
+},
+
+Première installation (une seule fois)
+bash# 1. Depuis la racine du projet
+npm run install:all
+
+# 2. Créer la base recipe_app dans DBeaver
+#    Clic droit sur Databases → Create New Database → recipe_app
+
+# 3. Générer Prisma et migrer
+cd backend
+npx prisma generate
+npx prisma migrate dev --name init
+cd ..
+
+Lancer le projet
+bash# Depuis la racine du projet
+npm run dev
+Ouvrir http://localhost:5173
+
+Si le port 3001 est déjà occupé
+Dans PowerShell :
+powershell# Trouver le PID
+netstat -ano | findstr :3001
+
+# Tuer le process (remplacer XXXXX par le PID trouvé)
+Stop-Process -Id XXXXX -Force
+
+Lancer le listener email (optionnel)
+Dans un terminal séparé, une fois le .env rempli avec les infos IMAP :
+bashcd backend
+npm run email:listen
+Format d'email à envoyer (objet doit contenir "recette") :
+Objet : recette - Nom du plat
+
+TITRE: Nom de la recette
+DESCRIPTION: Description courte
+TEMPS_PREP: 15
+TEMPS_CUISSON: 30
+PORTIONS: 4
+SAISONS: SPRING, SUMMER
+
+INGREDIENTS:
+- 200 g farine
+- 3 oeufs
+- 100 ml lait
+
+INSTRUCTIONS:
+Étape 1...
+Étape 2...
+
+Vérifier que tout fonctionne
+bashcurl http://localhost:3001/api/health
+# Doit retourner : {"status":"ok"}
