@@ -14,12 +14,14 @@ model User {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
   recipes   Recipe[]
+
   @@map("users")
 }
 
 model Recipe {
-  id           String       @id @default(uuid())
+  id           String          @id @default(uuid())
   title        String
   description  String?
   instructions String
@@ -27,15 +29,18 @@ model Recipe {
   prepTime     Int?
   cookTime     Int?
   season       Season[]
-  favorite     Boolean      @default(false)
-  source       RecipeSource @default(MANUAL)
+  category     CourseCategory?
+  favorite     Boolean         @default(false)
+  source       RecipeSource    @default(MANUAL)
   emailFrom    String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  userId       String
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredients  RecipeIngredient[]
-  photos       RecipePhoto[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+  photos      RecipePhoto[]
+
   @@map("recipes")
 }
 
@@ -44,9 +49,12 @@ model RecipeIngredient {
   name     String
   quantity String?
   unit     String?
+  cost     Int?
   order    Int     @default(0)
+
   recipeId String
-  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
   @@map("recipe_ingredients")
 }
 
@@ -58,8 +66,10 @@ model RecipePhoto {
   size      Int
   isMain    Boolean  @default(false)
   createdAt DateTime @default(now())
-  recipeId  String
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
   @@map("recipe_photos")
 }
 
@@ -68,6 +78,12 @@ enum Season {
   SUMMER
   AUTUMN
   WINTER
+}
+
+enum CourseCategory {
+  STARTER
+  MAIN
+  DESSERT
 }
 
 enum RecipeSource {

@@ -2,9 +2,16 @@ import { Response } from 'express';
 import prisma from '../lib/prisma';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { AppError } from '../middleware/error.middleware';
-import { RecipeFilters, Season, SortField } from '../types';
+import { Season, CourseCategory, SortField } from '../types';
 
 const VALID_SEASONS: Season[] = ['SPRING', 'SUMMER', 'AUTUMN', 'WINTER'];
+const VALID_CATEGORIES: CourseCategory[] = ['STARTER', 'MAIN', 'DESSERT'];
+
+type RecipeWithIngredients = {
+  id: string;
+  ingredients: { cost: number | null; order: number }[];
+  [key: string]: unknown;
+};
 
 export const getRecipes = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user!.userId;
@@ -12,13 +19,13 @@ export const getRecipes = async (req: AuthRequest, res: Response): Promise<void>
 
   const search = query.search;
   const season = query.season as Season | undefined;
+  const category = query.category as CourseCategory | undefined;
   const favorite = query.favorite;
   const ingredient = query.ingredient;
-  const sortBy: SortField = (query.sortBy as SortField) || 'createdAt';
+  const sortBy = (query.sortBy as SortField | 'totalCost') || 'createdAt';
   const sortOrder: 'asc' | 'desc' = (query.sortOrder as 'asc' | 'desc') || 'desc';
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 20;
-
   const skip = (page - 1) * limit;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,6 +42,10 @@ export const getRecipes = async (req: AuthRequest, res: Response): Promise<void>
     where.season = { has: season };
   }
 
+  if (category && VALID_CATEGORIES.includes(category)) {
+    where.category = category;
+  }
+
   if (favorite === 'true' || favorite === 'false') {
     where.favorite = favorite === 'true';
   }
@@ -43,6 +54,34 @@ export const getRecipes = async (req: AuthRequest, res: Response): Promise<void>
     where.ingredients = {
       some: { name: { contains: ingredient, mode: 'insensitive' } },
     };
+  }
+
+  if (sortBy === 'totalCost') {
+    const [all, total] = await Promise.all([
+      prisma.recipe.findMany({
+        where,
+        include: {
+          ingredients: { orderBy: { order: 'asc' } },
+          photos: { orderBy: { isMain: 'desc' } },
+        },
+      }),
+      prisma.recipe.count({ where }),
+    ]);
+
+    const withCost = (all as RecipeWithIngredients[]).map((r) => ({
+      ...r,
+      totalCost: r.ingredients.reduce((sum: number, i: { cost: number | null }) => sum + (i.cost ?? 0), 0),
+    }));
+
+    withCost.sort((a: { totalCost: number }, b: { totalCost: number }) =>
+      sortOrder === 'asc' ? a.totalCost - b.totalCost : b.totalCost - a.totalCost
+    );
+
+    res.json({
+      data: withCost.slice(skip, skip + limit),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+    return;
   }
 
   const [recipes, total] = await Promise.all([
@@ -61,12 +100,7 @@ export const getRecipes = async (req: AuthRequest, res: Response): Promise<void>
 
   res.json({
     data: recipes,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 };
 
@@ -95,11 +129,7 @@ export const createRecipe = async (req: AuthRequest, res: Response): Promise<voi
       ...recipeData,
       userId,
       ingredients: ingredients
-        ? {
-            create: ingredients.map(
-              (ing: Record<string, unknown>, i: number) => ({ ...ing, order: i })
-            ),
-          }
+        ? { create: ingredients.map((ing: Record<string, unknown>, i: number) => ({ ...ing, order: i })) }
         : undefined,
     },
     include: {
@@ -126,9 +156,7 @@ export const updateRecipe = async (req: AuthRequest, res: Response): Promise<voi
       ingredients: ingredients
         ? {
             deleteMany: {},
-            create: ingredients.map(
-              (ing: Record<string, unknown>, i: number) => ({ ...ing, order: i })
-            ),
+            create: ingredients.map((ing: Record<string, unknown>, i: number) => ({ ...ing, order: i })),
           }
         : undefined,
     },

@@ -1,6 +1,7 @@
 export type Season = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER';
 export type RecipeSource = 'MANUAL' | 'EMAIL';
 export type SortField = 'title' | 'createdAt' | 'updatedAt';
+export type CourseCategory = 'STARTER' | 'MAIN' | 'DESSERT';
 
 export interface User {
   id: string;
@@ -14,6 +15,7 @@ export interface Ingredient {
   name: string;
   quantity?: string;
   unit?: string;
+  cost?: number;
   order: number;
 }
 
@@ -36,6 +38,7 @@ export interface Recipe {
   prepTime?: number;
   cookTime?: number;
   season: Season[];
+  category?: CourseCategory;
   favorite: boolean;
   source: RecipeSource;
   emailFrom?: string;
@@ -49,9 +52,10 @@ export interface Recipe {
 export interface RecipeFilters {
   search?: string;
   season?: Season | '';
+  category?: CourseCategory | '';
   favorite?: boolean;
   ingredient?: string;
-  sortBy?: SortField;
+  sortBy?: SortField | 'totalCost';
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
@@ -71,6 +75,7 @@ export interface CreateIngredientDto {
   name: string;
   quantity?: string;
   unit?: string;
+  cost?: number;
 }
 
 export interface CreateRecipeDto {
@@ -81,6 +86,7 @@ export interface CreateRecipeDto {
   prepTime?: number;
   cookTime?: number;
   season?: Season[];
+  category?: CourseCategory;
   favorite?: boolean;
   ingredients?: CreateIngredientDto[];
 }
@@ -97,4 +103,45 @@ export const SEASON_EMOJIS: Record<Season, string> = {
   SUMMER: '☀️',
   AUTUMN: '🍂',
   WINTER: '❄️',
+};
+
+export const CATEGORY_LABELS: Record<CourseCategory, string> = {
+  STARTER: 'Entrée',
+  MAIN: 'Plat',
+  DESSERT: 'Dessert',
+};
+
+export const CATEGORY_EMOJIS: Record<CourseCategory, string> = {
+  STARTER: '🥗',
+  MAIN: '🍽️',
+  DESSERT: '🍰',
+};
+
+export const CATEGORY_COLORS: Record<CourseCategory, { bg: string; text: string; border: string; cardBg: string }> = {
+  STARTER: {
+    bg: 'bg-green-100',
+    text: 'text-green-700',
+    border: 'border-green-200',
+    cardBg: 'bg-green-50/40',
+  },
+  MAIN: {
+    bg: 'bg-red-100',
+    text: 'text-red-700',
+    border: 'border-red-200',
+    cardBg: 'bg-red-50/40',
+  },
+  DESSERT: {
+    bg: 'bg-yellow-100',
+    text: 'text-yellow-700',
+    border: 'border-yellow-200',
+    cardBg: 'bg-yellow-50/40',
+  },
+};
+
+export const COST_LABELS: Record<number, string> = {
+  1: '€',
+  2: '€€',
+  3: '€€€',
+  4: '€€€€',
+  5: '€€€€€',
 };

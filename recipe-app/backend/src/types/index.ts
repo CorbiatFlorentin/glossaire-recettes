@@ -1,6 +1,7 @@
 export type Season = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER';
 export type RecipeSource = 'MANUAL' | 'EMAIL';
 export type SortField = 'title' | 'createdAt' | 'updatedAt';
+export type CourseCategory = 'STARTER' | 'MAIN' | 'DESSERT';
 
 export interface JwtPayload {
   userId: string;
@@ -15,6 +16,7 @@ export interface CreateRecipeDto {
   prepTime?: number;
   cookTime?: number;
   season?: Season[];
+  category?: CourseCategory;
   favorite?: boolean;
   ingredients?: CreateIngredientDto[];
 }
@@ -23,12 +25,14 @@ export interface CreateIngredientDto {
   name: string;
   quantity?: string;
   unit?: string;
+  cost?: number;
   order?: number;
 }
 
 export interface RecipeFilters {
   search?: string;
   season?: Season;
+  category?: CourseCategory;
   favorite?: string; // query param = toujours string
   ingredient?: string;
   sortBy?: SortField;
