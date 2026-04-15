@@ -128,13 +128,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Audit root
-        run: npm audit --audit-level=high
-
-      - name: Install frontend deps
-        run: cd frontend && npm ci
+        run: npm audit --audit-level=critical
 
       - name: Audit frontend
-        run: cd frontend && npm audit --audit-level=high
+        run: cd frontend && npm audit --audit-level=critical
+
+      - name: Audit backend
+        run: cd backend && npm audit --audit-level=critical
 
       - name: Install backend deps
         run: cd backend && npm ci
