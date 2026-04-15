@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 
 export default tseslint.config(
+  { ignores: ['postcss.config.js', 'tailwind.config.js', 'vite.config.ts', 'dist/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -11,6 +12,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
+      'react-hooks/incompatible-library': 'warn',
     },
   }
 )
