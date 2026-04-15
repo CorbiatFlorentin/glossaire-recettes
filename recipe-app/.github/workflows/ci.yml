@@ -14,7 +14,6 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  # ─── Lint & Typecheck Frontend ───────────────────────────────────────────────
   lint-frontend:
     name: Lint & Typecheck — Frontend
     runs-on: ubuntu-latest
@@ -36,7 +35,6 @@ jobs:
       - name: Typecheck
         run: cd frontend && npm run typecheck
 
-  # ─── Lint & Typecheck Backend ────────────────────────────────────────────────
   lint-backend:
     name: Lint & Typecheck — Backend
     runs-on: ubuntu-latest
@@ -58,7 +56,6 @@ jobs:
       - name: Typecheck
         run: cd backend && npm run typecheck
 
-  # ─── Tests Frontend ──────────────────────────────────────────────────────────
   tests-frontend:
     name: Tests — Frontend
     runs-on: ubuntu-latest
@@ -92,24 +89,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           vite-config-path: frontend/vite.config.ts
 
-  # ─── Tests Backend ───────────────────────────────────────────────────────────
   tests-backend:
     name: Tests — Backend
     runs-on: ubuntu-latest
-    services:
-      # Si tu as une DB postgres en test, décommenter :
-       postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: recipe_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-           --health-interval 10s
-           --health-timeout 5s
-           --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -126,7 +108,6 @@ jobs:
         run: cd backend && npm run test:coverage
         env:
           NODE_ENV: test
-          # DATABASE_URL: postgresql://test:test@localhost:5432/recipe_test
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
@@ -136,7 +117,6 @@ jobs:
           path: backend/coverage/
           retention-days: 7
 
-  # ─── Audit sécurité ──────────────────────────────────────────────────────────
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
