@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ─── Lint & Typecheck Frontend ───────────────────────────────────────────────
+  lint-frontend:
+    name: Lint & Typecheck — Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Lint
+        run: cd frontend && npm run lint
+
+      - name: Typecheck
+        run: cd frontend && npm run typecheck
+
+  # ─── Lint & Typecheck Backend ────────────────────────────────────────────────
+  lint-backend:
+    name: Lint & Typecheck — Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      - name: Lint
+        run: cd backend && npm run lint
+
+      - name: Typecheck
+        run: cd backend && npm run typecheck
+
+  # ─── Tests Frontend ──────────────────────────────────────────────────────────
+  tests-frontend:
+    name: Tests — Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Run tests with coverage
+        run: cd frontend && npm run test:coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-frontend
+          path: frontend/coverage/
+          retention-days: 7
+
+      - name: Post coverage comment on PR
+        if: github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vite-config-path: frontend/vite.config.ts
+
+  # ─── Tests Backend ───────────────────────────────────────────────────────────
+  tests-backend:
+    name: Tests — Backend
+    runs-on: ubuntu-latest
+    services:
+      # Si tu as une DB postgres en test, décommenter :
+       postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: recipe_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+           --health-interval 10s
+           --health-timeout 5s
+           --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      - name: Run tests
+        run: cd backend && npm run test:coverage
+        env:
+          NODE_ENV: test
+          # DATABASE_URL: postgresql://test:test@localhost:5432/recipe_test
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-backend
+          path: backend/coverage/
+          retention-days: 7
+
+  # ─── Audit sécurité ──────────────────────────────────────────────────────────
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Audit root
+        run: npm audit --audit-level=high
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Audit frontend
+        run: cd frontend && npm audit --audit-level=high
+
+      - name: Install backend deps
+        run: cd backend && npm ci
+
+      - name: Audit backend
+        run: cd backend && npm audit --audit-level=high

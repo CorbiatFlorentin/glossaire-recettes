@@ -11,7 +11,12 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "email:listen": "ts-node-dev --respawn --transpile-only src/services/emailListener.ts"
+    "email:listen": "ts-node-dev --respawn --transpile-only src/services/emailListener.ts",
+    "lint": "eslint . --ext ts --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
