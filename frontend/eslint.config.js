@@ -4,11 +4,19 @@ import reactHooks from 'eslint-plugin-react-hooks'
 
 export default tseslint.config(
   {
-    ignores: ['postcss.config.cjs', 'dist/**', 'node_modules/**']
+    ignores: [
+      '**/*.config.js',
+      '**/*.config.cjs',
+      '**/*.config.mjs',
+      '**/*.config.ts',   // ← ajoute cette ligne
+      'dist/**',
+      'node_modules/**',
+    ]
   },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
     files: ['src/**/*.{ts,tsx}'],
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useRecipes, useToggleFavorite, useDeleteRecipe } from '@/hooks/useRecipes';
 import {
   RecipeFilters, Season, CourseCategory,

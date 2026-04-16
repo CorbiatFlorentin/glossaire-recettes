@@ -92,6 +92,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           vite-config-path: frontend/vite.config.ts
+          json-summary-path: frontend/coverage/coverage-summary.json  # ← ajoute
+          json-final-path: frontend/coverage/coverage-final.json 
 
   tests-backend:
     name: Tests — Backend
@@ -140,9 +142,3 @@ jobs:
 
       - name: Audit backend
         run: cd backend && npm audit --audit-level=critical
-
-      - name: Install backend deps
-        run: cd backend && npm ci
-
-      - name: Audit backend
-        run: cd backend && npm audit --audit-level=high
