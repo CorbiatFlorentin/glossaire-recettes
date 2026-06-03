@@ -120,20 +120,14 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
           working-directory: frontend/dist/
 
-      # Backend → adapter selon ton hébergeur
-      # Exemples décommentables :
-
-      # Railway :
-      # - name: Deploy backend to Railway
-      #   uses: bervProject/railway-deploy@main
-      #   with:
-      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
-      #     service: backend
-
-      # Render :
-      # - name: Deploy backend to Render
-      #   run: |
-      #     curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}
+      # Backend → Railway
+      - name: Deploy backend to Railway (staging)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli
+          cd backend
+          railway up --service backend --environment staging --detach
 
       - name: Notify Slack
         if: always()
@@ -179,14 +173,16 @@ jobs:
           vercel-args: '--prod'
           working-directory: frontend/dist/
 
-      # - name: Deploy backend to Railway (prod)
-      #   uses: bervProject/railway-deploy@main
-      #   with:
-      #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
-      #     service: backend
+      - name: Deploy backend to Railway (production)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli
+          cd backend
+          railway up --service backend --environment production --detach
 
       - name: Run DB migrations
-        run: cd backend && npm run db:migrate
+        run: cd backend && npm ci && npm run db:migrate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
 

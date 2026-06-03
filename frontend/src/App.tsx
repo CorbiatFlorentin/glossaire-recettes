@@ -8,6 +8,7 @@ import RecipesPage from '@/pages/RecipesPage';
 import RecipeDetailPage from '@/pages/RecipeDetailPage';
 import NewRecipePage from '@/pages/NewRecipePage';
 import EditRecipePage from '@/pages/EditRecipePage';
+import MealPlannerPage from '@/pages/MealPlannerPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="recipes/new" element={<NewRecipePage />} />
           <Route path="recipes/:id" element={<RecipeDetailPage />} />
           <Route path="recipes/:id/edit" element={<EditRecipePage />} />
+          <Route path="meal-planner" element={<MealPlannerPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

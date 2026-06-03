@@ -4,6 +4,7 @@ import { useRecipe, useToggleFavorite, useDeleteRecipe, useUploadPhoto, useDelet
 import { api } from '@/lib/api';
 import { SEASON_LABELS, SEASON_EMOJIS } from '@/types';
 import PhotoUploader from '@/components/recipes/PhotoUploader';
+import ShareModal from '@/components/recipes/ShareModal';
 import clsx from 'clsx';
 
 export default function RecipeDetailPage() {
@@ -15,6 +16,7 @@ export default function RecipeDetailPage() {
   const uploadPhoto = useUploadPhoto(id!);
   const deletePhoto = useDeletePhoto(id!);
   const [activePhoto, setActivePhoto] = useState<number>(0);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const handleSetMain = async (photoId: string) => {
     await api.patch(`/upload/${id}/photos/${photoId}/main`);
@@ -43,6 +45,7 @@ export default function RecipeDetailPage() {
   const currentPhoto = recipe.photos[activePhoto >= 0 ? activePhoto : displayIndex];
 
   return (
+    <>
     <div className="p-8 max-w-4xl mx-auto animate-fade-in">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-parchment-400 mb-6">
@@ -209,8 +212,24 @@ export default function RecipeDetailPage() {
               🗑 Supprimer
             </button>
           </div>
+
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="btn-secondary w-full justify-center"
+          >
+            📧 Envoyer par email
+          </button>
         </div>
       </div>
     </div>
+
+    {showShareModal && (
+      <ShareModal
+        recipeId={id!}
+        recipeTitle={recipe.title}
+        onClose={() => setShowShareModal(false)}
+      />
+    )}
+    </>
   );
 }

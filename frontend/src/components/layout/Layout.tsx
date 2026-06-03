@@ -54,6 +54,20 @@ export default function Layout() {
             Favoris
           </NavLink>
 
+          <NavLink
+            to="/meal-planner"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                isActive
+                  ? 'bg-parchment-100 text-parchment-800'
+                  : 'text-parchment-500 hover:bg-parchment-50 hover:text-parchment-700'
+              }`
+            }
+          >
+            <span className="text-base">📅</span>
+            Planifier la semaine
+          </NavLink>
+
           <div className="pt-4 pb-2">
             <p className="px-3 text-xs font-medium text-parchment-300 uppercase tracking-widest">
               Saisons

@@ -5,6 +5,8 @@ import path from 'path';
 import authRoutes from './routes/auth.routes';
 import recipeRoutes from './routes/recipe.routes';
 import uploadRoutes from './routes/upload.routes';
+import shareRoutes from './routes/share.routes';
+import mealPlanRoutes from './routes/mealplan.routes';
 import { errorHandler } from './middleware/error.middleware';
 
 dotenv.config();
@@ -16,19 +18,24 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173', cred
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-app.use('/uploads', express.static(path.join(process.cwd(), uploadDir)));
+// Serve local uploads in development (Cloudinary is used in production)
+if (!process.env.CLOUDINARY_CLOUD_NAME) {
+  const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+  app.use('/uploads', express.static(path.join(process.cwd(), uploadDir)));
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipeRoutes);
+app.use('/api/recipes', shareRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/meal-plans', mealPlanRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 export default app;

@@ -16,6 +16,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   recipes   Recipe[]
+  mealPlans MealPlan[]
 
   @@map("users")
 }
@@ -38,8 +39,9 @@ model Recipe {
 
   userId      String
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  ingredients RecipeIngredient[]
-  photos      RecipePhoto[]
+  ingredients     RecipeIngredient[]
+  photos          RecipePhoto[]
+  mealPlanEntries MealPlanEntry[]
 
   @@map("recipes")
 }
@@ -89,4 +91,40 @@ enum CourseCategory {
 enum RecipeSource {
   MANUAL
   EMAIL
+}
+
+model MealPlan {
+  id        String         @id @default(uuid())
+  weekStart DateTime
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([userId, weekStart])
+  @@map("meal_plans")
+}
+
+model MealPlanEntry {
+  id            String    @id @default(uuid())
+  dayOfWeek     Int
+  mealType      MealType
+  mealPlanId    String
+  mealPlan      MealPlan  @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipeId      String?
+  recipe        Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  externalTitle String?
+  externalUrl   String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([mealPlanId, dayOfWeek, mealType])
+  @@map("meal_plan_entries")
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
 }
