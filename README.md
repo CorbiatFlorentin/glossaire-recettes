@@ -1,150 +1,104 @@
-# 🍽️ Mes Recettes — Application full-stack
+# Mes Recettes
 
-Application de gestion de recettes personnelles avec import par email, classification avancée et gestion de photos.
+> Un carnet de cuisine personnel. Classez, photographiez, planifiez — depuis votre navigateur ou par email.
+
+---
+
+## Aperçu
+
+**Mes Recettes** est une application full-stack pensée comme un carnet de cuisine numérique : sobre, rapide et réellement utile au quotidien. On y retrouve l'essentiel — créer une recette, la retrouver par saison ou ingrédient, planifier la semaine — sans superflu.
+
+L'originalité du projet tient à son **import par email** : envoyez un email depuis votre adresse enregistrée avec "recette" dans l'objet, et la recette apparaît automatiquement dans votre carnet, analysée et structurée.
+
+---
+
+## Fonctionnalités
+
+**Carnet de recettes**
+- Création manuelle avec ingrédients, temps, portions, catégorie et saison
+- Import depuis une URL (Marmiton, 750g, et tout site utilisant JSON-LD)
+- Import par email au format structuré (service IMAP temps réel)
+- Photos multiples par recette avec conversion automatique en WebP
+- Filtre par saison, catégorie (entrée / plat / dessert), ingrédient, favori
+- Tri par date, titre, temps de cuisson, coût
+
+**Planificateur de semaine**
+- Grille semaine × repas (petit-déj, déjeuner, dîner)
+- Ajout depuis vos recettes ou depuis une URL externe
+- Navigation semaine par semaine
+
+**Partage**
+- Envoi d'une recette par email à n'importe quelle adresse
+
+---
 
 ## Stack technique
 
 | Couche | Technologie |
 |--------|-------------|
 | Frontend | React 18 + TypeScript + Vite |
-| Styling | Tailwind CSS (thème parchement custom) |
-| State | Zustand + React Query |
+| Styling | Tailwind CSS |
+| State | Zustand + TanStack Query |
 | Backend | Node.js + Express + TypeScript |
 | ORM | Prisma |
 | Base de données | PostgreSQL |
-| Email | IMAP (node-imap + mailparser) |
-| Images | Multer + Sharp (conversion WebP auto) |
-| Auth | JWT (jsonwebtoken + bcryptjs) |
+| Images | Multer + Sharp → WebP |
+| Stockage images | Cloudinary (prod) / disque local (dev) |
+| Auth | JWT + bcrypt |
+| Email import | IMAP (node-imap + mailparser) |
+| Email envoi | Resend |
 
 ---
 
-## 📁 Structure du projet
+## Démarrage rapide
 
-```
-recipe-app/
-├── backend/
-│   ├── prisma/
-│   │   ├── schema.prisma          # Modèles BDD (User, Recipe, Ingredient, Photo)
-│   │   └── migrations/
-│   ├── src/
-│   │   ├── controllers/
-│   │   │   ├── auth.controller.ts
-│   │   │   ├── recipe.controller.ts
-│   │   │   └── upload.controller.ts
-│   │   ├── middleware/
-│   │   │   ├── auth.middleware.ts
-│   │   │   ├── error.middleware.ts
-│   │   │   └── upload.middleware.ts
-│   │   ├── routes/
-│   │   │   ├── auth.routes.ts
-│   │   │   ├── recipe.routes.ts
-│   │   │   └── upload.routes.ts
-│   │   ├── services/
-│   │   │   └── emailListener.ts   # Service IMAP temps réel
-│   │   ├── utils/jwt.ts
-│   │   ├── types/index.ts
-│   │   ├── lib/prisma.ts
-│   │   └── index.ts
-│   ├── .env.example
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── layout/Layout.tsx      # Sidebar + navigation
-│   │   │   ├── recipes/
-│   │   │   │   ├── RecipeCard.tsx
-│   │   │   │   ├── RecipeForm.tsx     # Formulaire partagé new/edit
-│   │   │   │   └── PhotoUploader.tsx  # Drag & drop photos
-│   │   │   └── ui/
-│   │   │       ├── SearchBar.tsx
-│   │   │       ├── FilterBar.tsx
-│   │   │       ├── Pagination.tsx
-│   │   │       ├── EmptyState.tsx
-│   │   │       └── LoadingGrid.tsx
-│   │   ├── hooks/useRecipes.ts        # React Query hooks
-│   │   ├── pages/
-│   │   │   ├── RecipesPage.tsx        # Liste + filtres
-│   │   │   ├── RecipeDetailPage.tsx
-│   │   │   ├── NewRecipePage.tsx
-│   │   │   ├── EditRecipePage.tsx
-│   │   │   ├── LoginPage.tsx
-│   │   │   └── RegisterPage.tsx
-│   │   ├── stores/auth.store.ts       # Zustand auth
-│   │   ├── lib/api.ts                 # Axios + intercepteurs
-│   │   ├── types/index.ts
-│   │   └── App.tsx
-│   ├── tailwind.config.ts
-│   └── package.json
-├── docker-compose.yml
-└── package.json
-```
-
----
-
-## 🚀 Installation et démarrage
-
-### 1. Prérequis
+### Prérequis
 
 - Node.js 20+
-- Docker (pour PostgreSQL) ou PostgreSQL installé localement
+- Docker (pour PostgreSQL) ou PostgreSQL local
 
-### 2. Lancer PostgreSQL
+### 1. Base de données
 
 ```bash
 docker-compose up -d postgres
 ```
 
-La base sera disponible sur `postgresql://recipe_user:recipe_pass@localhost:5432/recipe_app`
-
-### 3. Configurer l'environnement backend
+### 2. Variables d'environnement
 
 ```bash
 cp backend/.env.example backend/.env
-# Éditez backend/.env avec vos valeurs
+# Renseigner DATABASE_URL, JWT_SECRET, et optionnellement IMAP / Cloudinary / Resend
 ```
 
-### 4. Installer les dépendances
+### 3. Installation et migration
 
 ```bash
 npm run install:all
-```
-
-### 5. Migrer la base de données
-
-```bash
 npm run db:migrate
 ```
 
-### 6. Lancer l'application
+### 4. Lancement
 
 ```bash
-# Backend + frontend en parallèle
-npm run dev
-
-# Séparément :
-npm run dev:backend   # port 3001
-npm run dev:frontend  # port 5173
-
-# Listener email (séparé)
-npm run dev:email
+npm run dev              # backend (3001) + frontend (5173) en parallèle
+npm run dev:email        # listener email (optionnel, processus séparé)
 ```
 
-Ouvrez [http://localhost:5173](http://localhost:5173)
+Ouvrir [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## 📧 Import par email
+## Import par email
 
-### Format d'email attendu
+Envoyez un email **depuis l'adresse de votre compte** avec le mot-clé `recette` dans l'objet.
 
-Envoyez un email depuis votre adresse enregistrée avec **"recette"** dans l'objet :
+Le corps doit suivre ce format :
 
 ```
-Objet: Recette - Gratin dauphinois
+Objet : Recette — Gratin dauphinois
 
 TITRE: Gratin Dauphinois
-DESCRIPTION: Un classique réconfortant
+DESCRIPTION: Un classique réconfortant de la cuisine savoyarde
 TEMPS_PREP: 20
 TEMPS_CUISSON: 45
 PORTIONS: 6
@@ -153,109 +107,145 @@ SAISONS: AUTUMN, WINTER
 INGREDIENTS:
 - 1 kg pommes de terre
 - 40 cl crème fraîche
-- 2 gousses ail
+- 2 gousses d'ail
 - 50 g beurre
-- sel
-- poivre
+- sel, poivre
 
 INSTRUCTIONS:
 Épluchez et tranchez finement les pommes de terre.
-Frottez le plat avec l'ail et beurrez-le.
-Disposez les couches de pommes de terre...
+Frottez le plat avec l'ail et beurrez-le généreusement.
+Disposez les couches en alternant avec la crème...
 ```
 
-### Configuration IMAP (Gmail)
+### Configuration IMAP
 
-1. Activez l'accès IMAP dans Gmail (Paramètres → Voir tous les paramètres → Transfert et POP/IMAP)
-2. Créez un [mot de passe d'application](https://myaccount.google.com/apppasswords) (2FA requis)
-3. Renseignez `IMAP_USER` et `IMAP_PASSWORD` dans `.env`
+| Fournisseur | `IMAP_HOST` | `IMAP_PORT` |
+|-------------|-------------|-------------|
+| Gmail | `imap.gmail.com` | `993` |
+| Outlook / Hotmail | `outlook.office365.com` | `993` |
+| Yahoo | `imap.mail.yahoo.com` | `993` |
+| OVH | `ssl0.ovh.net` | `993` |
 
-### Autres fournisseurs
-
-| Fournisseur | IMAP_HOST | IMAP_PORT |
-|-------------|-----------|-----------|
-| Gmail | imap.gmail.com | 993 |
-| Outlook/Hotmail | outlook.office365.com | 993 |
-| Yahoo | imap.mail.yahoo.com | 993 |
-| OVH | ssl0.ovh.net | 993 |
+Pour Gmail : activez l'accès IMAP dans les paramètres, puis créez un [mot de passe d'application](https://myaccount.google.com/apppasswords) (2FA requis).
 
 ---
 
-## 🔌 API Endpoints
+## API
 
-### Auth
+### Authentification
+
 ```
 POST /api/auth/register   { name, email, password }
 POST /api/auth/login      { email, password }
-GET  /api/auth/me         → user (JWT requis)
+GET  /api/auth/me                                     — JWT requis
 ```
 
 ### Recettes
+
 ```
-GET    /api/recipes              ?search, season, favorite, ingredient, sortBy, sortOrder, page, limit
+GET    /api/recipes        ?search, season, category, favorite, ingredient, sortBy, sortOrder, page, limit
 GET    /api/recipes/:id
-POST   /api/recipes              { title, instructions, description?, season[], prepTime?, cookTime?, servings?, ingredients[] }
+POST   /api/recipes        { title, instructions, description?, season[], category?, prepTime?, cookTime?, servings?, ingredients[] }
 PUT    /api/recipes/:id
 DELETE /api/recipes/:id
 PATCH  /api/recipes/:id/favorite
 ```
 
 ### Photos
+
 ```
-POST   /api/upload/:recipeId/photos          multipart/form-data { photo: File }
+POST   /api/upload/:recipeId/photos
 DELETE /api/upload/:recipeId/photos/:photoId
 PATCH  /api/upload/:recipeId/photos/:photoId/main
 ```
 
----
-
-## 🎨 Design
-
-Le frontend utilise une palette "parchemin" chaude et des typographies éditoriales :
-- **Playfair Display** pour les titres (caractère éditorial)
-- **DM Sans** pour le corps de texte (lisibilité)
-- **JetBrains Mono** pour les quantités d'ingrédients
-
----
-
-## 🗄️ Modèle de données
+### Planificateur
 
 ```
-User
- └── Recipe (userId)
-      ├── RecipeIngredient[] (recipeId)
-      └── RecipePhoto[]      (recipeId)
-
-Enums : Season (SPRING|SUMMER|AUTUMN|WINTER)
-        RecipeSource (MANUAL|EMAIL)
+GET  /api/meal-plans/week     ?weekStart=YYYY-MM-DD
+PUT  /api/meal-plans/:id/entries
+DELETE /api/meal-plans/:id/entries/:entryId
+POST /api/meal-plans/scrape   { url }
 ```
 
 ---
 
-## 🔒 Sécurité
+## Variables d'environnement
 
-- Mots de passe hashés avec bcrypt (12 rounds)
-- JWT expiration configurable (défaut 7 jours)
-- Chaque recette est strictement liée à son propriétaire (`userId`)
-- Les photos sont converties en WebP et redimensionnées à max 1200×900px
-- Validation des types MIME sur les uploads
-
----
-
-## 📦 Variables d'environnement
-
-| Variable | Description | Défaut |
+| Variable | Description | Requis |
 |----------|-------------|--------|
-| `DATABASE_URL` | URL PostgreSQL | — |
-| `JWT_SECRET` | Clé secrète JWT | — |
+| `DATABASE_URL` | URL PostgreSQL | ✓ |
+| `JWT_SECRET` | Clé secrète JWT (min. 32 caractères) | ✓ |
 | `JWT_EXPIRES_IN` | Durée de vie du token | `7d` |
 | `PORT` | Port du serveur | `3001` |
 | `FRONTEND_URL` | URL du frontend (CORS) | `http://localhost:5173` |
-| `IMAP_HOST` | Serveur IMAP | `imap.gmail.com` |
+| `CLOUDINARY_CLOUD_NAME` | Nom du projet Cloudinary | prod |
+| `CLOUDINARY_API_KEY` | Clé API Cloudinary | prod |
+| `CLOUDINARY_API_SECRET` | Secret API Cloudinary | prod |
+| `RESEND_API_KEY` | Clé API Resend (envoi email) | partage |
+| `EMAIL_FROM` | Adresse expéditeur | partage |
+| `IMAP_HOST` | Serveur IMAP | import email |
 | `IMAP_PORT` | Port IMAP | `993` |
-| `IMAP_USER` | Email IMAP | — |
-| `IMAP_PASSWORD` | Mot de passe IMAP | — |
-| `IMAP_MAILBOX` | Boîte à écouter | `INBOX` |
+| `IMAP_USER` | Adresse email IMAP | import email |
+| `IMAP_PASSWORD` | Mot de passe IMAP | import email |
+| `IMAP_MAILBOX` | Boîte à surveiller | `INBOX` |
 | `EMAIL_RECIPE_TAG` | Mot-clé dans le sujet | `recette` |
-| `UPLOAD_DIR` | Dossier d'uploads | `uploads` |
-| `MAX_FILE_SIZE_MB` | Taille max des photos | `10` |
+| `UPLOAD_DIR` | Dossier uploads local (dev) | `uploads` |
+| `MAX_FILE_SIZE_MB` | Taille max photo | `10` |
+
+---
+
+## Modèle de données
+
+```
+User
+ └── Recipe
+      ├── RecipeIngredient[]
+      ├── RecipePhoto[]
+      └── MealPlanEntry[]
+
+MealPlan (User, weekStart)
+ └── MealPlanEntry[]
+
+Enums
+  Season          : SPRING | SUMMER | AUTUMN | WINTER
+  CourseCategory  : STARTER | MAIN | DESSERT
+  MealType        : BREAKFAST | LUNCH | DINNER
+  RecipeSource    : MANUAL | EMAIL
+```
+
+---
+
+## Structure du projet
+
+```
+.
+├── backend/
+│   ├── prisma/
+│   │   └── schema.prisma
+│   └── src/
+│       ├── controllers/      auth · recipe · upload · share · mealplan
+│       ├── middleware/        auth · error · upload
+│       ├── routes/            auth · recipe · upload · share · mealplan
+│       ├── services/          email.service · emailListener · scraper
+│       ├── lib/               prisma · cloudinary
+│       └── utils/             jwt
+└── frontend/
+    └── src/
+        ├── components/
+        │   ├── layout/        Layout (sidebar)
+        │   ├── recipes/       RecipeCard · RecipeForm · PhotoUploader · ShareModal
+        │   └── ui/            SearchBar · FilterBar · Pagination · EmptyState · LoadingGrid
+        ├── hooks/             useRecipes
+        ├── pages/             Recipes · RecipeDetail · NewRecipe · EditRecipe · MealPlanner · Login · Register
+        ├── stores/            auth.store
+        └── lib/               api (axios)
+```
+
+---
+
+## Déploiement
+
+Le projet est configuré pour **Render** via `render.yaml` (service web Node.js + PostgreSQL managé). Les images sont hébergées sur **Cloudinary**.
+
+CI/CD via GitHub Actions : lint + build sur chaque push, déploiement automatique sur merge sur `main`.
