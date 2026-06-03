@@ -6,10 +6,9 @@ on:
       environment:
         description: 'Environnement cible'
         required: true
-        default: 'staging'
+        default: 'production'
         type: choice
         options:
-          - staging
           - production
 
 concurrency:
@@ -42,7 +41,7 @@ jobs:
         run: cd frontend && npm run build
         env:
           VITE_APP_ENV: production
-          # VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Set artifact name
         id: set-artifact
@@ -55,96 +54,11 @@ jobs:
           path: frontend/dist/
           retention-days: 1
 
-  # ─── Build Backend ───────────────────────────────────────────────────────────
-  build-backend:
-    name: Build — Backend
-    runs-on: ubuntu-latest
-    outputs:
-      artifact-name: ${{ steps.set-artifact.outputs.name }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install deps
-        run: cd backend && npm ci
-
-      - name: Build
-        run: cd backend && npm run build
-
-      - name: Set artifact name
-        id: set-artifact
-        run: echo "name=backend-build-${{ github.sha }}" >> $GITHUB_OUTPUT
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.set-artifact.outputs.name }}
-          path: backend/dist/
-          retention-days: 1
-
-  # ─── Deploy Staging ──────────────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy → Staging
-    runs-on: ubuntu-latest
-    needs: [build-frontend, build-backend]
-    environment:
-      name: staging
-      url: ${{ steps.deploy-front.outputs.url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.build-frontend.outputs.artifact-name }}
-          path: frontend/dist/
-
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.build-backend.outputs.artifact-name }}
-          path: backend/dist/
-
-      # Frontend → Vercel
-      - name: Deploy frontend to Vercel
-        id: deploy-front
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
-          working-directory: frontend/dist/
-
-      # Backend → Railway
-      - name: Deploy backend to Railway (staging)
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          npm install -g @railway/cli
-          cd backend
-          railway up --service backend --environment staging --detach
-
-      - name: Notify Slack
-        if: always()
-        uses: slackapi/slack-github-action@v2
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ job.status == 'success' && '✅' || '❌' }} *Staging* déployé — <${{ steps.deploy-front.outputs.url }}|Voir le déploiement>"
-            }
-
-  # ─── Deploy Production ───────────────────────────────────────────────────────
-  deploy-production:
+  # ─── Deploy ──────────────────────────────────────────────────────────────────
+  deploy:
     name: Deploy → Production
     runs-on: ubuntu-latest
-    needs: [build-frontend, build-backend, deploy-staging]
+    needs: [build-frontend]
     environment:
       name: production
       url: ${{ steps.deploy-front.outputs.url }}
@@ -157,13 +71,8 @@ jobs:
           name: ${{ needs.build-frontend.outputs.artifact-name }}
           path: frontend/dist/
 
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.build-backend.outputs.artifact-name }}
-          path: backend/dist/
-
-      - name: Deploy frontend to Vercel (prod)
+      # Frontend → Vercel
+      - name: Deploy frontend to Vercel
         id: deploy-front
         uses: amondnet/vercel-action@v25
         with:
@@ -173,18 +82,9 @@ jobs:
           vercel-args: '--prod'
           working-directory: frontend/dist/
 
-      - name: Deploy backend to Railway (production)
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          npm install -g @railway/cli
-          cd backend
-          railway up --service backend --environment production --detach
-
-      - name: Run DB migrations
-        run: cd backend && npm ci && npm run db:migrate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION }}
+      # Backend → Render (auto-déployé depuis GitHub, trigger manuel via deploy hook)
+      - name: Trigger Render backend deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -192,14 +92,3 @@ jobs:
         with:
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Notify Slack
-        if: always()
-        uses: slackapi/slack-github-action@v2
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ job.status == 'success' && '🚀' || '🔥' }} *Production* déployée — <${{ steps.deploy-front.outputs.url }}|Voir le site>"
-            }
