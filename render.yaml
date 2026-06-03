@@ -3,7 +3,7 @@ services:
     name: recipe-api
     runtime: node
     rootDir: backend
-    buildCommand: npm ci --include=dev && npm run build && npx prisma generate && npx prisma db push
+    buildCommand: npm ci && npm run build && npx prisma generate && npx prisma db push
     startCommand: npm start
     plan: free
     envVars:
