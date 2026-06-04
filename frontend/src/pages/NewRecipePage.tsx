@@ -67,10 +67,14 @@ export default function NewRecipePage() {
     setImportError('');
     try {
       const { data } = await api.post<ScrapedRecipe>('/meal-plans/scrape', { url });
-      setDefaultValues(scrapedToDefaults(data));
-      setFormKey((k) => k + 1);
+      if (!data.ingredients.length && !data.instructions) {
+        setImportError("Ce site ne permet pas l'import automatique (contenu chargé en JavaScript). Essayez avec AllRecipes, 750g ou un site PDF.");
+      } else {
+        setDefaultValues(scrapedToDefaults(data));
+        setFormKey((k) => k + 1);
+      }
     } catch {
-      setImportError("Impossible d'extraire la recette depuis cette URL. Le site ne supporte peut-être pas le format JSON-LD.");
+      setImportError("Impossible d'extraire la recette depuis cette URL.");
     } finally {
       setImporting(false);
     }
@@ -97,7 +101,9 @@ export default function NewRecipePage() {
       <div className="card p-5 mb-6 space-y-3">
         <h3 className="font-display text-base font-semibold text-parchment-700">Importer depuis une URL</h3>
         <p className="text-sm text-parchment-400">
-          Collez un lien vers une recette (Marmiton, 750g, AllRecipes…) pour pré-remplir le formulaire automatiquement.
+          Collez un lien vers une recette pour pré-remplir le formulaire.{' '}
+          <span className="text-parchment-500 font-medium">Compatible : AllRecipes, 750g, BBC Good Food, Cuisine AZ, fichiers PDF.</span>{' '}
+          <span className="text-parchment-300">(Marmiton non supporté — contenu JavaScript)</span>
         </p>
         <div className="flex gap-2">
           <input
