@@ -121,7 +121,9 @@ export const scrapeUrl = async (req: AuthRequest, res: Response): Promise<void> 
   try {
     const recipe = await scrapeRecipeFromUrl(url);
     res.json(recipe);
-  } catch {
-    throw new AppError(422, 'Impossible d\'extraire la recette depuis cette URL');
+  } catch (err) {
+    console.error('[scrapeUrl] erreur:', err);
+    const msg = err instanceof Error ? err.message : 'Erreur inconnue';
+    throw new AppError(422, `Impossible d'extraire la recette: ${msg}`);
   }
 };

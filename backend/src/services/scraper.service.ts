@@ -1,5 +1,8 @@
+// pdf-parse v1 exporte une fonction, v2 peut exporter { default: fn }
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>;
+const _pdfMod = require('pdf-parse');
+const pdfParse: (buf: Buffer) => Promise<{ text: string }> =
+  typeof _pdfMod === 'function' ? _pdfMod : (_pdfMod.default ?? _pdfMod);
 
 export interface ScrapedRecipe {
   title: string;
