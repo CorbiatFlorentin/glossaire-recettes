@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>;
+
 export interface ScrapedRecipe {
   title: string;
   description?: string;
@@ -23,6 +26,8 @@ interface JsonLdRecipe {
   image?: string | string[] | { url?: string };
 }
 
+// ── Helpers communs ──────────────────────────────────────────────────────────
+
 function parseDuration(iso: string | undefined): number | undefined {
   if (!iso) return undefined;
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
@@ -38,10 +43,7 @@ function extractInstructions(raw: JsonLdRecipe['recipeInstructions']): string {
   if (typeof raw === 'string') return raw;
   if (Array.isArray(raw)) {
     return raw
-      .map((step) => {
-        if (typeof step === 'string') return step;
-        return step.text ?? step.name ?? '';
-      })
+      .map((step) => (typeof step === 'string' ? step : (step.text ?? step.name ?? '')))
       .filter(Boolean)
       .join('\n');
   }
@@ -55,6 +57,8 @@ function extractImageUrl(image: JsonLdRecipe['image']): string | undefined {
   return image.url;
 }
 
+// ── Scraping HTML / JSON-LD ──────────────────────────────────────────────────
+
 function parseJsonLd(html: string): ScrapedRecipe | null {
   const scriptRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match: RegExpExecArray | null;
@@ -63,7 +67,6 @@ function parseJsonLd(html: string): ScrapedRecipe | null {
     try {
       const raw = JSON.parse(match[1]) as JsonLdRecipe | { '@graph'?: JsonLdRecipe[] };
 
-      // Handle @graph arrays (common in WordPress/Yoast SEO)
       const candidates: JsonLdRecipe[] = [];
       if ('@graph' in raw && Array.isArray((raw as { '@graph': JsonLdRecipe[] })['@graph'])) {
         candidates.push(...(raw as { '@graph': JsonLdRecipe[] })['@graph']);
@@ -95,7 +98,7 @@ function parseJsonLd(html: string): ScrapedRecipe | null {
         };
       }
     } catch {
-      // Invalid JSON, continue to next script tag
+      // JSON invalide, on passe au bloc suivant
     }
   }
 
@@ -110,30 +113,124 @@ function extractTitle(html: string): string {
   return 'Recette importée';
 }
 
+// ── Parsing PDF ──────────────────────────────────────────────────────────────
+
+function parseNumber(text: string, pattern: RegExp): number | undefined {
+  const m = text.match(pattern);
+  if (!m) return undefined;
+  const n = parseInt(m[1], 10);
+  return isNaN(n) ? undefined : n;
+}
+
+function parsePdfText(text: string, url: string): ScrapedRecipe {
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // Titre : première ligne non vide
+  const title = lines[0] ?? 'Recette importée';
+
+  // Portions
+  const servings = parseNumber(text, /pour\s+(\d+)\s+(?:personnes?|portions?)/i);
+
+  // Temps (minutes)
+  const prepTime = parseNumber(text, /(?:temps\s+de\s+)?pr[ée]paration\s*:?\s*(\d+)\s*min/i);
+  const cookTime = parseNumber(text, /(?:temps\s+de\s+)?cuisson\s*:?\s*(\d+)\s*min/i);
+
+  // Indices des sections
+  const ingredientIdx = lines.findIndex((l) => /ingr[ée]dient/i.test(l));
+  const prepIdx = lines.findIndex((l) =>
+    /^(?:pr[ée]paration|instructions?|[ée]tapes?|recette)\s*:?$/i.test(l) ||
+    /^(?:pr[ée]paration|instructions?)\s*:/i.test(l)
+  );
+
+  // Ingrédients
+  let ingredients: string[] = [];
+  if (ingredientIdx >= 0) {
+    const end = prepIdx > ingredientIdx ? prepIdx : lines.length;
+    ingredients = lines
+      .slice(ingredientIdx + 1, end)
+      .filter((l) => l.length > 1 && !/^pour\s/i.test(l) && !/ingr[ée]dient/i.test(l))
+      .map((l) => l.replace(/^[-•*·]\s*/, '').trim())
+      .filter(Boolean);
+  }
+
+  // Instructions
+  let instructions = '';
+  if (prepIdx >= 0) {
+    instructions = lines
+      .slice(prepIdx + 1)
+      .join('\n')
+      .trim();
+  } else if (ingredientIdx >= 0 && ingredients.length > 0) {
+    // Pas de section "Préparation" trouvée : tout ce qui suit les ingrédients
+    const afterIngredients = ingredientIdx + 1 + ingredients.length;
+    instructions = lines.slice(afterIngredients).join('\n').trim();
+  }
+
+  return { title, servings, prepTime, cookTime, ingredients, instructions, sourceUrl: url };
+}
+
+async function scrapeFromPdf(url: string, fetchOptions: RequestInit): Promise<ScrapedRecipe> {
+  const response = await fetch(url, fetchOptions);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const { text } = await pdfParse(buffer);
+
+  if (!text || text.trim().length < 20) {
+    throw new Error('PDF scanné ou vide — aucun texte extractible');
+  }
+
+  return parsePdfText(text, url);
+}
+
+// ── Point d'entrée public ────────────────────────────────────────────────────
+
 export async function scrapeRecipeFromUrl(url: string): Promise<ScrapedRecipe> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+
+  const fetchOptions: RequestInit = {
+    signal: controller.signal,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; RecipeBot/1.0)',
+      Accept: 'text/html,application/xhtml+xml,application/pdf,*/*',
+      'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+    },
+  };
 
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RecipeBot/1.0)',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-      },
-    });
+    // Détection PDF par extension ou content-type
+    const isPdfByExtension = /\.pdf(\?.*)?$/i.test(url);
 
+    if (isPdfByExtension) {
+      return await scrapeFromPdf(url, fetchOptions);
+    }
+
+    // Sinon on charge en HTML
+    const response = await fetch(url, fetchOptions);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const html = await response.text();
 
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/pdf')) {
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const { text } = await pdfParse(buffer);
+      if (!text || text.trim().length < 20) throw new Error('PDF sans texte');
+      return parsePdfText(text, url);
+    }
+
+    const html = await response.text();
     const parsed = parseJsonLd(html);
     if (parsed) {
       parsed.sourceUrl = url;
       return parsed;
     }
 
-    // Fallback: return minimal data with just the page title
     return {
       title: extractTitle(html),
       ingredients: [],
