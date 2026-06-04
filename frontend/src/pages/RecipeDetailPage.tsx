@@ -17,6 +17,11 @@ export default function RecipeDetailPage() {
   const deletePhoto = useDeletePhoto(id!);
   const [activePhoto, setActivePhoto] = useState<number>(0);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [currentServings, setCurrentServings] = useState<number | null>(null);
+
+  const baseServings = recipe?.servings ?? null;
+  const servings = currentServings ?? baseServings ?? 1;
+  const ratio = baseServings ? servings / baseServings : 1;
 
   const handleSetMain = async (photoId: string) => {
     await api.patch(`/upload/${id}/photos/${photoId}/main`);
@@ -39,6 +44,29 @@ export default function RecipeDetailPage() {
   }
 
   if (!recipe) return null;
+
+  function parseQty(q: string): number | null {
+    const s = q.trim().replace(',', '.');
+    const frac = s.match(/^(\d+)\/(\d+)$/);
+    if (frac) return parseInt(frac[1]) / parseInt(frac[2]);
+    const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+    if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3]);
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  }
+
+  function formatQty(n: number): string {
+    if (Number.isInteger(n)) return String(n);
+    const r = Math.round(n * 10) / 10;
+    return String(r).replace('.', ',');
+  }
+
+  function scaleQty(quantity: string | null | undefined): string {
+    if (!quantity) return '';
+    const n = parseQty(quantity);
+    if (n === null) return quantity;
+    return formatQty(n * ratio);
+  }
 
   const mainPhotoIndex = recipe.photos.findIndex((p) => p.isMain);
   const displayIndex = mainPhotoIndex >= 0 ? mainPhotoIndex : 0;
@@ -160,10 +188,25 @@ export default function RecipeDetailPage() {
                   <p className="text-sm font-semibold text-parchment-700">{recipe.cookTime} min</p>
                 </div>
               )}
-              {recipe.servings && (
+              {baseServings && (
                 <div className="text-center">
-                  <p className="text-xs text-parchment-400 mb-0.5">Portions</p>
-                  <p className="text-sm font-semibold text-parchment-700">{recipe.servings} pers.</p>
+                  <p className="text-xs text-parchment-400 mb-1">Portions</p>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentServings(Math.max(1, servings - 1))}
+                      className="w-6 h-6 rounded-full bg-parchment-100 hover:bg-parchment-200 text-parchment-600 text-sm font-bold transition-colors flex items-center justify-center"
+                    >−</button>
+                    <span className="text-sm font-semibold text-parchment-700 min-w-[2rem] text-center">{servings}</span>
+                    <button
+                      onClick={() => setCurrentServings(servings + 1)}
+                      className="w-6 h-6 rounded-full bg-parchment-100 hover:bg-parchment-200 text-parchment-600 text-sm font-bold transition-colors flex items-center justify-center"
+                    >+</button>
+                  </div>
+                  {ratio !== 1 && (
+                    <button onClick={() => setCurrentServings(null)} className="text-xs text-parchment-400 hover:text-parchment-600 mt-0.5 transition-colors">
+                      reset
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -192,8 +235,8 @@ export default function RecipeDetailPage() {
                   <li key={ing.id} className="flex items-baseline gap-2 text-sm">
                     <span className="w-1.5 h-1.5 rounded-full bg-parchment-300 flex-shrink-0 mt-1.5" />
                     {(ing.quantity || ing.unit) && (
-                      <span className="font-medium text-parchment-600 flex-shrink-0 font-mono text-xs">
-                        {ing.quantity}{ing.unit && ` ${ing.unit}`}
+                      <span className={clsx('font-medium flex-shrink-0 font-mono text-xs', ratio !== 1 ? 'text-parchment-800' : 'text-parchment-600')}>
+                        {scaleQty(ing.quantity)}{ing.unit && ` ${ing.unit}`}
                       </span>
                     )}
                     <span className="text-parchment-700">{ing.name}</span>
