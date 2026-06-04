@@ -7,15 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Household {
+  id         String     @id @default(uuid())
+  inviteCode String     @unique @default(uuid())
+  createdAt  DateTime   @default(now())
 
+  users     User[]
   recipes   Recipe[]
+  mealPlans MealPlan[]
+
+  @@map("households")
+}
+
+model User {
+  id          String     @id @default(uuid())
+  email       String     @unique
+  name        String
+  password    String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  householdId String?
+  household   Household? @relation(fields: [householdId], references: [id])
+
+  recipes   Recipe[]   @relation("RecipeCreator")
   mealPlans MealPlan[]
 
   @@map("users")
@@ -38,7 +53,9 @@ model Recipe {
   updatedAt    DateTime        @updatedAt
 
   userId      String
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User               @relation("RecipeCreator", fields: [userId], references: [id], onDelete: Cascade)
+  householdId String?
+  household   Household?         @relation(fields: [householdId], references: [id])
   ingredients     RecipeIngredient[]
   photos          RecipePhoto[]
   mealPlanEntries MealPlanEntry[]
@@ -98,6 +115,8 @@ model MealPlan {
   weekStart DateTime
   userId    String
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId String?
+  household   Household?   @relation(fields: [householdId], references: [id])
   entries   MealPlanEntry[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt

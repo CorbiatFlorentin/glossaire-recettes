@@ -6,7 +6,12 @@ import { AppError } from '../middleware/error.middleware';
 import { AuthRequest } from '../middleware/auth.middleware';
 
 export const register = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { name, email, password } = req.body as { name?: string; email?: string; password?: string };
+  const { name, email, password, inviteCode } = req.body as {
+    name?: string;
+    email?: string;
+    password?: string;
+    inviteCode?: string;
+  };
 
   if (!name || !email || !password) {
     throw new AppError(400, 'Nom, email et mot de passe requis');
@@ -19,10 +24,25 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
 
   const hashed = await bcrypt.hash(password, 10);
 
+  // Résoudre le foyer : rejoindre via code ou en créer un nouveau
+  let householdId: string;
+
+  if (inviteCode?.trim()) {
+    const household = await prisma.household.findUnique({ where: { inviteCode: inviteCode.trim() } });
+    if (!household) throw new AppError(404, 'Code d\'invitation invalide');
+    householdId = household.id;
+  } else {
+    const household = await prisma.household.create({ data: {} });
+    householdId = household.id;
+  }
+
   const user = await prisma.user.create({
-    data: { name, email, password: hashed },
-    select: { id: true, name: true, email: true, createdAt: true },
+    data: { name, email, password: hashed, householdId },
+    select: { id: true, name: true, email: true, createdAt: true, householdId: true },
   });
+
+  // Rattacher les recettes au foyer (cas création : aucune à ce stade, mais par sécurité)
+  await prisma.recipe.updateMany({ where: { userId: user.id, householdId: null }, data: { householdId } });
 
   const token = signToken({ userId: user.id, email: user.email });
 
@@ -49,25 +69,21 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
   const token = signToken({ userId: user.id, email: user.email });
 
   res.json({
-    user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
+    user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt, householdId: user.householdId },
     token,
   });
 };
 
 export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
   const userId = req.user?.userId;
-  if (!userId) {
-    throw new AppError(401, 'Non autorise');
-  }
+  if (!userId) throw new AppError(401, 'Non autorise');
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, createdAt: true },
+    select: { id: true, name: true, email: true, createdAt: true, householdId: true },
   });
 
-  if (!user) {
-    throw new AppError(404, 'Utilisateur introuvable');
-  }
+  if (!user) throw new AppError(404, 'Utilisateur introuvable');
 
   res.json(user);
 };

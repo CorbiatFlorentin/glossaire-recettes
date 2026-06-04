@@ -23,26 +23,50 @@ export const getWeekPlan = async (req: AuthRequest, res: Response): Promise<void
   }
 
   const weekStart = normalizeWeekStart(new Date(weekStartStr));
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { householdId: true } });
+  const householdId = user?.householdId ?? null;
 
-  const plan = await prisma.mealPlan.upsert({
-    where: { userId_weekStart: { userId, weekStart } },
-    create: { userId, weekStart },
-    update: {},
-    include: {
-      entries: {
+  // Si le foyer existe, chercher/créer le plan du foyer partagé
+  // Sinon fallback sur le plan personnel de l'utilisateur
+  let plan;
+  if (householdId) {
+    // Chercher un plan existant pour ce foyer cette semaine (peu importe qui l'a créé)
+    const existingPlan = await prisma.mealPlan.findFirst({
+      where: { householdId, weekStart },
+      include: {
+        entries: {
+          include: { recipe: { select: { id: true, title: true, photos: { where: { isMain: true }, select: { path: true }, take: 1 } } } },
+          orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
+        },
+      },
+    });
+
+    if (existingPlan) {
+      plan = existingPlan;
+    } else {
+      plan = await prisma.mealPlan.create({
+        data: { userId, weekStart, householdId },
         include: {
-          recipe: {
-            select: {
-              id: true,
-              title: true,
-              photos: { where: { isMain: true }, select: { path: true }, take: 1 },
-            },
+          entries: {
+            include: { recipe: { select: { id: true, title: true, photos: { where: { isMain: true }, select: { path: true }, take: 1 } } } },
+            orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
           },
         },
-        orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
+      });
+    }
+  } else {
+    plan = await prisma.mealPlan.upsert({
+      where: { userId_weekStart: { userId, weekStart } },
+      create: { userId, weekStart },
+      update: {},
+      include: {
+        entries: {
+          include: { recipe: { select: { id: true, title: true, photos: { where: { isMain: true }, select: { path: true }, take: 1 } } } },
+          orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
+        },
       },
-    },
-  });
+    });
+  }
 
   res.json(plan);
 };

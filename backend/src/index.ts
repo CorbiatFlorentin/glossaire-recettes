@@ -7,6 +7,7 @@ import recipeRoutes from './routes/recipe.routes';
 import uploadRoutes from './routes/upload.routes';
 import shareRoutes from './routes/share.routes';
 import mealPlanRoutes from './routes/mealplan.routes';
+import householdRoutes from './routes/household.routes';
 import { errorHandler } from './middleware/error.middleware';
 
 dotenv.config();
@@ -43,6 +44,7 @@ app.use('/api/recipes', recipeRoutes);
 app.use('/api/recipes', shareRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/meal-plans', mealPlanRoutes);
+app.use('/api/household', householdRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 

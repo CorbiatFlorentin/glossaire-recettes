@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function Layout() {
@@ -106,22 +106,22 @@ export default function Layout() {
 
         {/* User */}
         <div className="px-4 pb-6 pt-2">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-parchment-50 transition-all">
+          <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-parchment-50 transition-all group">
             <div className="w-8 h-8 rounded-full bg-parchment-200 flex items-center justify-center text-sm font-medium text-parchment-700">
               {user?.name?.[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-parchment-800 truncate">{user?.name}</p>
-              <p className="text-xs text-parchment-400 truncate">{user?.email}</p>
+              <p className="text-xs text-parchment-400 truncate">Profil & foyer</p>
             </div>
             <button
-              onClick={handleLogout}
-              className="text-parchment-400 hover:text-terracotta-400 transition-colors text-xs"
+              onClick={(e) => { e.preventDefault(); handleLogout(); }}
+              className="text-parchment-400 hover:text-terracotta-400 transition-colors text-xs opacity-0 group-hover:opacity-100"
               title="Se déconnecter"
             >
               ↗
             </button>
-          </div>
+          </Link>
         </div>
       </aside>
 

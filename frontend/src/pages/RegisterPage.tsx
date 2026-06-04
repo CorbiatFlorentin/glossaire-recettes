@@ -7,6 +7,8 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [showInvite, setShowInvite] = useState(false);
   const { register, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
@@ -17,7 +19,7 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await register(name, email, password);
+      await register(name, email, password, inviteCode.trim() || undefined);
       navigate('/');
     } catch {
       toast.error('Erreur lors de la création du compte');
@@ -42,8 +44,9 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">Votre prénom ou pseudo</label>
+              <label className="label" htmlFor="name">Votre prénom ou pseudo</label>
               <input
+                id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -55,8 +58,9 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="label">Email</label>
+              <label className="label" htmlFor="email">Email</label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -68,8 +72,9 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="label">Mot de passe (8 caractères min.)</label>
+              <label className="label" htmlFor="password">Mot de passe (8 caractères min.)</label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -79,6 +84,32 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 className="input"
               />
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowInvite(!showInvite)}
+                className="text-sm text-parchment-400 hover:text-parchment-600 transition-colors flex items-center gap-1"
+              >
+                {showInvite ? '▼' : '▶'} J'ai un code d'invitation (foyer partagé)
+              </button>
+              {showInvite && (
+                <div className="mt-2">
+                  <input
+                    id="inviteCode"
+                    type="text"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    placeholder="Collez le code ici…"
+                    autoComplete="off"
+                    className="input text-sm font-mono"
+                  />
+                  <p className="text-xs text-parchment-400 mt-1">
+                    Laissez vide pour créer votre propre répertoire.
+                  </p>
+                </div>
+              )}
             </div>
 
             <button
