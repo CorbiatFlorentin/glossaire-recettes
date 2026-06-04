@@ -122,51 +122,55 @@ function parseNumber(text: string, pattern: RegExp): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
+function looksLikeInstruction(line: string): boolean {
+  // Ligne longue sans chiffre au début → probablement une étape de préparation
+  return line.length > 60 && !/^\d/.test(line);
+}
+
 function parsePdfText(text: string, url: string): ScrapedRecipe {
   const lines = text
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
 
-  // Titre : première ligne non vide
   const title = lines[0] ?? 'Recette importée';
-
-  // Portions
   const servings = parseNumber(text, /pour\s+(\d+)\s+(?:personnes?|portions?)/i);
-
-  // Temps (minutes)
   const prepTime = parseNumber(text, /(?:temps\s+de\s+)?pr[ée]paration\s*:?\s*(\d+)\s*min/i);
   const cookTime = parseNumber(text, /(?:temps\s+de\s+)?cuisson\s*:?\s*(\d+)\s*min/i);
 
-  // Indices des sections
   const ingredientIdx = lines.findIndex((l) => /ingr[ée]dient/i.test(l));
-  const prepIdx = lines.findIndex((l) =>
-    /^(?:pr[ée]paration|instructions?|[ée]tapes?|recette)\s*:?$/i.test(l) ||
-    /^(?:pr[ée]paration|instructions?)\s*:/i.test(l)
+
+  // Section préparation : détection souple (majuscules, tirets, espaces variables)
+  const prepIdx = lines.findIndex(
+    (l, i) =>
+      i > ingredientIdx &&
+      /^(?:pr[ée]paration|instructions?|[ée]tapes?|recette|m[ée]thode)\b/i.test(l)
   );
 
-  // Ingrédients
   let ingredients: string[] = [];
+  let instructions = '';
+
   if (ingredientIdx >= 0) {
     const end = prepIdx > ingredientIdx ? prepIdx : lines.length;
-    ingredients = lines
+    const raw = lines
       .slice(ingredientIdx + 1, end)
       .filter((l) => l.length > 1 && !/^pour\s/i.test(l) && !/ingr[ée]dient/i.test(l))
       .map((l) => l.replace(/^[-•*·]\s*/, '').trim())
       .filter(Boolean);
+
+    // Sépare les vrais ingrédients des lignes d'instructions qui auraient fui dans la section
+    const cutoff = raw.findIndex(looksLikeInstruction);
+    if (cutoff > 0) {
+      ingredients = raw.slice(0, cutoff);
+      // Si pas de section préparation trouvée, ce qui suit est les instructions
+      if (prepIdx < 0) instructions = raw.slice(cutoff).join('\n');
+    } else {
+      ingredients = raw;
+    }
   }
 
-  // Instructions
-  let instructions = '';
   if (prepIdx >= 0) {
-    instructions = lines
-      .slice(prepIdx + 1)
-      .join('\n')
-      .trim();
-  } else if (ingredientIdx >= 0 && ingredients.length > 0) {
-    // Pas de section "Préparation" trouvée : tout ce qui suit les ingrédients
-    const afterIngredients = ingredientIdx + 1 + ingredients.length;
-    instructions = lines.slice(afterIngredients).join('\n').trim();
+    instructions = lines.slice(prepIdx + 1).join('\n').trim();
   }
 
   return { title, servings, prepTime, cookTime, ingredients, instructions, sourceUrl: url };

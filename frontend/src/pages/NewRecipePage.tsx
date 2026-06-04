@@ -23,7 +23,8 @@ function parseIngredient(raw: string): { quantity: string; unit: string; name: s
   const qty = numMatch[1];
   const rest = numMatch[2];
 
-  const unitRe = /^(g|kg|ml|cl|dl|l|cs|cc|cuillères?\s+à\s+soupe|cuillères?\s+à\s+café|tasses?|pincées?|poignées?|tranches?|gousses?|bottes?|sachets?|feuilles?|brins?|branches?|morceaux?|filets?)\s*/i;
+  // "gr" doit être avant "g" pour éviter que "gr" soit matché en "g" + "r" résiduel
+  const unitRe = /^(gr|g|kg|ml|cl|dl|l|cs|cc|cuillères?\s+à\s+soupe|cuillères?\s+à\s+café|tasses?|pincées?|poignées?|tranches?|gousses?|bottes?|sachets?|feuilles?|brins?|branches?|morceaux?|filets?)\s*/i;
   const unitMatch = rest.match(unitRe);
   if (unitMatch) {
     const unit = unitMatch[1];
